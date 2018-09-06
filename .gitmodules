@@ -1,0 +1,6 @@
+[submodule "bean-matlab-toolkit"]
+	path = bean-matlab-toolkit
+	url = https://github.com/brazilbean/bean-matlab-toolkit.git
+[submodule "Matlab-Colony-Analyzer-Toolkit"]
+	path = Matlab-Colony-Analyzer-Toolkit
+	url = https://github.com/brazilbean/Matlab-Colony-Analyzer-Toolkit.git
