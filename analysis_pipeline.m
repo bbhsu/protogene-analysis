@@ -6,10 +6,10 @@ $ Output: Fitness, stats, p-value, q-value, effect (beneficial/neutral/deleterio
 % Brian Hsu, 2015
 
 javaaddpath(‘/home/sbp29/MATLAB/mysql-connector-java-5.1.45-bin.jar’)
-addpath(genpath('/home/sbp29/MATLAB/Matlab-Colony-Analyzer-Toolkit-master'))
-addpath(genpath('/home/sbp29/MATLAB/bean-matlab-toolkit-master'))
-addpath('/home/bhsu/data_raw2sql/sql_functions')
-addpath('/home/bhsu/data_raw2sql/sql_functions/utilities')
+addpath(genpath('./Matlab-Colony-Analyzer-Toolkit-master'))
+addpath(genpath('./bean-matlab-toolkit-master'))
+addpath('./sql_functions')
+addpath('./utilities')
 
 %% Declare tables and SQL connection
 
@@ -45,7 +45,7 @@ for ii = 1 : length(table_data.source)
   toc;
 end
 
-%% Convert JPEG_RESULTS to SPATIAL_RESULTS
+%% Convert JPEG_RESULTS to SPATIAL_RESULTS (Step 1)
 
 for ii = 1 : length(tables)
 
@@ -148,7 +148,8 @@ end
 close(conn);
 clearvars -except tables database_name username password address
 disp('SPATIAL RESULTS DONE');
-%% SPATIAL_RESULTS -> FITNESS w/ identifiers
+
+%% Calculate colony size fitness (Step 2)
 conn = database(database_name, username, password, 'Vendor', 'MYSQL', 'Server', address);
 
 col_names = {'orf_name', 'pid', 'exp_id', 'hours', 'is_orf', 'average', 'fitness'};
@@ -171,8 +172,8 @@ end
 close(conn);
 clearvars -except tables database_name username password address
 disp('FITNESS DONE');
-%% FITNESS -> ANALYSIS
-% stats, p-values, q-values, fitness threshold
+
+%% Calculate colony size fitness statistics (Step 3)
 conn = database(database_name, username, password, 'Vendor', 'MYSQL', 'Server', address);
 
 col_names = {'orf_name', 'exp_id', 'hours', 'mean', 'median'};
@@ -195,7 +196,8 @@ end
 close(conn);
 clearvars -except tables database_name username password address
 disp('STATS DONE');
-%% FITNESS -> p-values
+
+%% Calculate p-values using colony size fitness (Step 4)
 % stats, p-values, q-values, fitness threshold
 conn = database(database_name, username, password, 'Vendor', 'MYSQL', 'Server', address);
 
@@ -219,7 +221,8 @@ end
 close(conn);
 clearvars -except tables database_name username password address
 disp('P-VALUES DONE');
-%% FITNESS -> q-values
+
+%% Correct colony size p-values for multiple testing hypothesis (Step 5)
 % stats, p-values, q-values, fitness threshold
 conn = database(database_name, username, password, 'Vendor', 'MYSQL', 'Server', address);
 
@@ -243,7 +246,8 @@ end
 close(conn);
 clearvars -except tables database_name username password address
 disp('Q-VALUES DONE');
-%% FITNESS -> perc
+
+%% Calculate effect size thresholds with colony size fitness (Step 6)
 % stats, p-values, q-values, fitness threshold
 conn = database(database_name, username, password, 'Vendor', 'MYSQL', 'Server', address);
 
@@ -267,7 +271,8 @@ end
 close(conn);
 clearvars -except tables database_name username password address
 disp('PERC DONE');
-%% SPATIAL RESULTS -> GROWTH RATE
+
+%% Calculate growth rate using colony size and time points
 conn = database(database_name, username, password, 'Vendor', 'MYSQL', 'Server', address);
 
 col_names = {'pos', 'pid', 'exp_id', 'hours', 'GR'};
@@ -290,7 +295,8 @@ end
 close(conn);
 clearvars -except tables database_name username password address
 disp('GR SPATIAL RESULTS DONE');
-%% GROWTH RATE -> GROWTH RATE FITNESS w/ identifiers
+
+%% Calculate growth rate fitness
 conn = database(database_name, username, password, 'Vendor', 'MYSQL', 'Server', address);
 
 col_names = {'orf_name', 'pid', 'exp_id', 'hours', 'is_orf', 'fitness'};
@@ -313,7 +319,8 @@ end
 close(conn);
 clearvars -except tables database_name username password address
 disp('GR FITNESS DONE');
-%% GROWTH RATE FITNESS -> ANALYSIS
+
+%% Calculate growth rate fitness statistics
 conn = database(database_name, username, password, 'Vendor', 'MYSQL', 'Server', address);
 
 col_names = {'orf_name', 'exp_id', 'hours', 'mean', 'median'};
@@ -336,7 +343,8 @@ end
 close(conn);
 clearvars -except tables database_name username password address
 disp('GR STATS DONE');
-%% GROWTH RATE FITNESS -> P-VALUES
+
+%% Calculate p-values using growth rate fitness
 % stats, p-values, q-values, fitness threshold
 conn = database(database_name, username, password, 'Vendor', 'MYSQL', 'Server', address);
 
@@ -360,7 +368,8 @@ end
 close(conn);
 clearvars -except tables database_name username password address
 disp('GR P-VALUES DONE');
-%% GROWTH RATE P-VALUES -> Q-VALUES
+
+%% Correct growth rate p-values for multiple testing hypothesis
 % stats, p-values, q-values, fitness threshold
 conn = database(database_name, username, password, 'Vendor', 'MYSQL', 'Server', address);
 
@@ -384,7 +393,8 @@ end
 close(conn);
 clearvars -except tables database_name username password address
 disp('GR Q-VALUES DONE');
-%% GROWTH RATE FITNESS -> PERC
+
+%% Calculate effect size thresholds with growth rate fitness
 % stats, p-values, q-values, fitness threshold
 conn = database(database_name, username, password, 'Vendor', 'MYSQL', 'Server', address);
 
@@ -408,7 +418,8 @@ end
 close(conn);
 clearvars -except tables database_name username password address
 disp('GR PERC DONE');
-%% Insert individual tables into main GR tables
+
+%% Insert individual tables into main growth rate tables
 conn = database(database_name, username, password, 'Vendor', 'MYSQL', 'Server', address);
 
 data_tables = {'GR_STATS_ALL', 'GR_QVALUES_ALL', 'GR_PERC_ALL', 'GR_DATASET'};
@@ -544,6 +555,7 @@ for ii = 1 : length(data_tables)
     end
 end
 
+%% Classify yeast strains as beneficial/neutral/deleterious (Step 7)
 for ii = 1 : length(tables)
 
     exp_data = sql_query(conn, ['select distinct exp_id from PERC_v2_' tables{ii}]);
