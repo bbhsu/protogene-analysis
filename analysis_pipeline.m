@@ -272,243 +272,6 @@ close(conn);
 clearvars -except tables database_name username password address
 disp('PERC DONE');
 
-%% Calculate growth rate using colony size and time points
-conn = database(database_name, username, password, 'Vendor', 'MYSQL', 'Server', address);
-
-col_names = {'pos', 'pid', 'exp_id', 'hours', 'GR'};
-col_format = '%d,%d,%d,%d,%f';
-
-for ii = 1 : length(tables)
-    foo_table = strcat('SPATIAL_RESULTS_v2_', tables{ii});
-    foo1_table = strcat('GROWTHRATE_v2_', tables{ii});
-    exec(conn, ['drop table ' foo1_table]);
-    exec(conn, ['create table ' foo1_table ' (pos int not null, pid int not null, exp_id int not null,' ...
-        ' hours int not null, GR double null)']);
-
-    data = calculate_growth_rate(conn, foo_table);
-
-    exps = fieldnames(data);
-    for jj = 1 : length(exps)
-        fasterinsert(conn, data.(exps{jj}), col_names, col_format, foo1_table);
-    end
-end
-close(conn);
-clearvars -except tables database_name username password address
-disp('GR SPATIAL RESULTS DONE');
-
-%% Calculate growth rate fitness
-conn = database(database_name, username, password, 'Vendor', 'MYSQL', 'Server', address);
-
-col_names = {'orf_name', 'pid', 'exp_id', 'hours', 'is_orf', 'fitness'};
-col_format = '"%s",%d,%d,%d,%d,%f';
-
-for ii = 1 : length(tables)
-    foo_table = strcat('GROWTHRATE_v2_', tables{ii});
-    foo1_table = strcat('GR_FITNESS_v2_', tables{ii});
-    exec(conn, ['drop table ' foo1_table]);
-    exec(conn, ['create table ' foo1_table ' (orf_name varchar(255) null, pid int not null,' ...
-        ' exp_id int not null, hours int null, is_orf int null, fitness double null)']);
-
-    data = calculate_growth_fitness(conn, foo_table);
-
-    exps = fieldnames(data);
-    for jj = 1 : length(exps)
-        fasterinsert(conn, data.(exps{jj}), col_names, col_format, foo1_table);
-    end
-end
-close(conn);
-clearvars -except tables database_name username password address
-disp('GR FITNESS DONE');
-
-%% Calculate growth rate fitness statistics
-conn = database(database_name, username, password, 'Vendor', 'MYSQL', 'Server', address);
-
-col_names = {'orf_name', 'exp_id', 'hours', 'mean', 'median'};
-col_format = '"%s",%d,%d,%f,%f';
-
-for ii = 1 : length(tables)
-    foo_table = strcat('GR_FITNESS_v2_', tables{ii});
-    foo1_table = strcat('GR_STATS_v2_', tables{ii});
-    exec(conn, ['drop table ' foo1_table]);
-    exec(conn, ['create table ' foo1_table ' (orf_name varchar(255) null, exp_id int not null,' ...
-        ' hours int not null, mean double null, median double null)']);
-
-    data = calculate_stats(conn, foo_table);
-
-    exps = fieldnames(data);
-    for jj = 1 : length(exps)
-        fasterinsert(conn, data.(exps{jj}), col_names, col_format, foo1_table);
-    end
-end
-close(conn);
-clearvars -except tables database_name username password address
-disp('GR STATS DONE');
-
-%% Calculate p-values using growth rate fitness
-% stats, p-values, q-values, fitness threshold
-conn = database(database_name, username, password, 'Vendor', 'MYSQL', 'Server', address);
-
-col_names = {'orf_name', 'exp_id', 'hours', 'p', 'stat'};
-col_format = '"%s",%d,%d,%f,%f';
-
-for ii = 1 : length(tables)
-    foo_table = strcat('GR_FITNESS_v2_', tables{ii});
-    foo1_table = strcat('GR_PVALUES_v2_', tables{ii});
-    exec(conn, ['drop table ' foo1_table]);
-    exec(conn, ['create table ' foo1_table ' (orf_name varchar(255) null, exp_id int not null,' ...
-        ' hours int not null, p double null, stat double null)']);
-
-    data = mann_whitney(conn, foo_table);
-
-    exps = fieldnames(data);
-    for jj = 1 : length(exps)
-        fasterinsert(conn, data.(exps{jj}), col_names, col_format, foo1_table);
-    end
-end
-close(conn);
-clearvars -except tables database_name username password address
-disp('GR P-VALUES DONE');
-
-%% Correct growth rate p-values for multiple testing hypothesis
-% stats, p-values, q-values, fitness threshold
-conn = database(database_name, username, password, 'Vendor', 'MYSQL', 'Server', address);
-
-col_names = {'orf_name', 'exp_id', 'hours', 'q', 'p', 'stat'};
-col_format = '"%s",%d,%d,%f,%f,%f';
-
-for ii = 1 : length(tables)
-    foo_table = strcat('GR_PVALUES_v2_', tables{ii});
-    foo1_table = strcat('GR_QVALUES_v2_', tables{ii});
-    exec(conn, ['drop table ' foo1_table]);
-    exec(conn, ['create table ' foo1_table ' (orf_name varchar(255) null, exp_id int not null,' ...
-        ' hours int not null, q double null, p double null, stat double null)']);
-
-    data = qvalue_correction(conn, foo_table);
-
-    exps = fieldnames(data);
-    for jj = 1 : length(exps)
-        fasterinsert(conn, data.(exps{jj}), col_names, col_format, foo1_table);
-    end
-end
-close(conn);
-clearvars -except tables database_name username password address
-disp('GR Q-VALUES DONE');
-
-%% Calculate effect size thresholds with growth rate fitness
-% stats, p-values, q-values, fitness threshold
-conn = database(database_name, username, password, 'Vendor', 'MYSQL', 'Server', address);
-
-col_names = {'exp_id', 'hours', 'perc5', 'perc95'};
-col_format = '%d,%d,%f,%f';
-
-for ii = 1 : length(tables)
-    foo_table = strcat('GR_FITNESS_v2_', tables{ii});
-    foo1_table = strcat('GR_PERC_v2_', tables{ii});
-    exec(conn, ['drop table ' foo1_table]);
-    exec(conn, ['create table ' foo1_table ' (exp_id int not null,' ...
-        ' hours int not null, perc5 double null, perc95 double null)']);
-
-    data = calculate_percentile(conn, foo_table);
-
-    exps = fieldnames(data);
-    for jj = 1 : length(exps)
-        fasterinsert(conn, data.(exps{jj}), col_names, col_format, foo1_table);
-    end
-end
-close(conn);
-clearvars -except tables database_name username password address
-disp('GR PERC DONE');
-
-%% Insert individual tables into main growth rate tables
-conn = database(database_name, username, password, 'Vendor', 'MYSQL', 'Server', address);
-
-data_tables = {'GR_STATS_ALL', 'GR_QVALUES_ALL', 'GR_PERC_ALL', 'GR_DATASET'};
-temp_tables = cellfun( @(x) strcat(x, '_temp'), data_tables, 'Uniformoutput', false);
-for ii = 1 : length(data_tables)
-    mysql_table = sql_query(conn, ['show tables like "' data_tables{ii} '"']);
-    if iscell(mysql_table) && strcmpi(mysql_table{1}, 'No Data') == 1
-        disp('Making new tables.');
-        if ii == 1
-            exec(conn, ['create table ' data_tables{ii} ' (orf_name varchar(255) not null, exp_id int not null, hours int not null, mean double null, median double null)']);
-            exec(conn, ['alter table ' data_tables{ii} ' add primary key(orf_name, exp_id, hours)']);
-            exec(conn, ['alter table ' data_tables{ii} ' add index(mean)']);
-            exec(conn, ['alter table ' data_tables{ii} ' add index(median)']);
-        elseif ii == 2
-            exec(conn, ['create table ' data_tables{ii} ' (orf_name varchar(255) not null, exp_id int not null, hours int not null, q double null, p double null, stat double null)']);
-            exec(conn, ['alter table ' data_tables{ii} ' add primary key(orf_name, exp_id, hours)']);
-            exec(conn, ['alter table ' data_tables{ii} ' add index(q)']);
-            exec(conn, ['alter table ' data_tables{ii} ' add index(p)']);
-            exec(conn, ['alter table ' data_tables{ii} ' add index(stat)']);
-        elseif ii == 3
-            exec(conn, ['create table ' data_tables{ii} ' (exp_id int not null, hours int not null, perc5 double null, perc95 double null)']);
-            exec(conn, ['alter table ' data_tables{ii} ' add primary key(exp_id, hours)']);
-            exec(conn, ['alter table ' data_tables{ii} ' add index(perc5)']);
-            exec(conn, ['alter table ' data_tables{ii} ' add index(perc95)']);
-        elseif ii == 4
-            exec(conn, ['create table ' data_tables{ii} ' (orf_name varchar(255) not null, exp_id int not null, hours int not null, median double null, q double null, p double null, stat double null, effect varchar(255) not null)']);
-            exec(conn, ['alter table ' data_tables{ii} ' add primary key(orf_name, exp_id, hours)']);
-            exec(conn, ['alter table ' data_tables{ii} ' add index(median)']);
-            exec(conn, ['alter table ' data_tables{ii} ' add index(q)']);
-            exec(conn, ['alter table ' data_tables{ii} ' add index(p)']);
-            exec(conn, ['alter table ' data_tables{ii} ' add index(stat)']);
-            exec(conn, ['alter table ' data_tables{ii} ' add index(effect)']);
-        end
-    end
-end
-
-for ii = 1 : length(tables)
-
-    exp_data = sql_query(conn, ['select distinct exp_id from GR_PERC_v2_' tables{ii}]);
-    exp_str = strcat('(', regexprep(num2str(exp_data.exp_id'), '\s+', ','), ')');
-
-    tic;
-    for jj = 1 : length(data_tables)
-        exec(conn, ['delete from ' data_tables{jj} ' where exp_id in ' exp_str]);
-        exec(conn, ['drop table ' temp_tables{jj}]);
-    end
-    toc;
-
-    tic;
-    exec(conn, ['create table ' temp_tables{1} ' select * from GR_STATS_v2_' tables{ii}]);
-    exec(conn, ['create table ' temp_tables{2} ' select * from GR_QVALUES_v2_', tables{ii}]);
-    exec(conn, ['create table ' temp_tables{3} ' select * from GR_PERC_v2_', tables{ii}]);
-
-    exec(conn, ['alter table ' temp_tables{1} ' add primary key(orf_name, exp_id, hours)']);
-    exec(conn, ['alter table ' temp_tables{1} ' add index(mean)']);
-    exec(conn, ['alter table ' temp_tables{1} ' add index(median)']);
-    exec(conn, ['alter table ' temp_tables{2} ' add primary key(orf_name, exp_id, hours)']);
-    exec(conn, ['alter table ' temp_tables{2} ' add index(q)']);
-    exec(conn, ['alter table ' temp_tables{2} ' add index(p)']);
-    exec(conn, ['alter table ' temp_tables{2} ' add index(stat)']);
-    exec(conn, ['alter table ' temp_tables{3} ' add primary key(exp_id, hours)']);
-    exec(conn, ['alter table ' temp_tables{3} ' add index(perc5)']);
-    exec(conn, ['alter table ' temp_tables{3} ' add index(perc95)']);
-    toc;
-
-    tic;
-    exec(conn, ['create table ' temp_tables{4} ' (select a.orf_name, a.exp_id, a.hours, a.median, b.q, b.p, b.stat from ' temp_tables{1} ' a, ' temp_tables{2} ' b where a.orf_name=b.orf_name and a.exp_id=b.exp_id and a.hours=b.hours)']);
-    exec(conn, ['alter table ' temp_tables{4} ' add effect varchar(255) not null']);
-
-    exec(conn, ['alter table ' temp_tables{4} ' add primary key(orf_name, exp_id, hours)']);
-    exec(conn, ['alter table ' temp_tables{4} ' add index(median)']);
-    exec(conn, ['alter table ' temp_tables{4} ' add index(q)']);
-    exec(conn, ['alter table ' temp_tables{4} ' add index(p)']);
-    exec(conn, ['alter table ' temp_tables{4} ' add index(stat)']);
-    exec(conn, ['alter table ' temp_tables{4} ' add index(effect)']);
-
-    exec(conn, ['update ' temp_tables{4} ' a, ' temp_tables{3} ' b set effect="deleterious" where a.exp_id=b.exp_id and median<perc5 and q<0.05']);
-    exec(conn, ['update ' temp_tables{4} ' a, ' temp_tables{3} ' b set effect="beneficial" where a.exp_id=b.exp_id and median>perc95 and q<0.05']);
-    exec(conn, ['update ' temp_tables{4} ' set effect="neutral" where effect = ""']);
-    toc;
-
-    tic;
-    for jj = 1 : length(data_tables)
-        exec(conn, ['insert into ' data_tables{jj} ' select * from ' temp_tables{jj}]);
-        exec(conn, ['drop table ' temp_tables{jj}]);
-    end
-    toc;
-end
-
 %% Insert individual table into main tables
 conn = database(database_name, username, password, 'Vendor', 'MYSQL', 'Server', address);
 
@@ -534,15 +297,12 @@ for ii = 1 : length(data_tables)
             exec(conn, ['alter table ' data_tables{ii} ' add index(perc5)']);
             exec(conn, ['alter table ' data_tables{ii} ' add index(perc95)']);
         elseif ii == 4
-            exec(conn, ['create table ' data_tables{ii} ' (orf_name varchar(255) not null, exp_id int not null, hours int not null, N int not null, colony_size double null, q_cs double null, growth_rate double null, q_gr double null, effect_cs varchar(255) not null, effect_gr varchar(255) not null)']);
+            exec(conn, ['create table ' data_tables{ii} ' (orf_name varchar(255) not null, exp_id int not null, hours int not null, N int not null, colony_size double null, q_cs double null, effect_cs varchar(255) not null)']);
             exec(conn, ['alter table ' data_tables{ii} ' add primary key(orf_name, exp_id, hours)']);
             exec(conn, ['alter table ' data_tables{ii} ' add index(N)']);
             exec(conn, ['alter table ' data_tables{ii} ' add index(colony_size)']);
-            exec(conn, ['alter table ' data_tables{ii} ' add index(growth_rate)']);
             exec(conn, ['alter table ' data_tables{ii} ' add index(q_cs)']);
-            exec(conn, ['alter table ' data_tables{ii} ' add index(q_gr)']);
             exec(conn, ['alter table ' data_tables{ii} ' add index(effect_cs)']);
-            exec(conn, ['alter table ' data_tables{ii} ' add index(effect_gr)']);
         elseif ii == 5
             exec(conn, ['create table ' data_tables{ii} ' (orf_name varchar(255) not null, pid int not null, exp_id int not null, hours int null, is_orf int null, average double null, fitness double null)']);
             exec(conn, ['alter table ' data_tables{ii} ' add primary key(pid, exp_id)']);
@@ -593,19 +353,13 @@ for ii = 1 : length(tables)
     exec(conn, ['create table ' temp_tables{4} ' (select a.orf_name, a.exp_id, a.hours, a.median as colony_size, b.q as q_cs from ' temp_tables{1} ' a, ' temp_tables{2} ' b where a.orf_name=b.orf_name and a.exp_id=b.exp_id and a.hours=b.hours)']);
 
     exec(conn, ['alter table ' temp_tables{4} ' add N int not null after hours']);
-    exec(conn, ['alter table ' temp_tables{4} ' add growth_rate double null']);
-    exec(conn, ['alter table ' temp_tables{4} ' add q_gr double null']);
     exec(conn, ['alter table ' temp_tables{4} ' add effect_cs varchar(255) not null']);
-    exec(conn, ['alter table ' temp_tables{4} ' add effect_gr varchar(255) not null']);
 
     exec(conn, ['alter table ' temp_tables{4} ' add primary key(orf_name, exp_id, hours)']);
     exec(conn, ['alter table ' temp_tables{4} ' add index(N)']);
     exec(conn, ['alter table ' temp_tables{4} ' add index(colony_size)']);
     exec(conn, ['alter table ' temp_tables{4} ' add index(q_cs)']);
-    exec(conn, ['alter table ' temp_tables{4} ' add index(growth_rate)']);
-    exec(conn, ['alter table ' temp_tables{4} ' add index(q_gr)']);
     exec(conn, ['alter table ' temp_tables{4} ' add index(effect_cs)']);
-    exec(conn, ['alter table ' temp_tables{4} ' add index(effect_gr)']);
 
     exec(conn, ['update ' temp_tables{4} ' a, ' temp_tables{3} ' b set effect_cs="deleterious" where a.exp_id=b.exp_id and colony_size<perc5 and q_cs<0.01']);
     exec(conn, ['update ' temp_tables{4} ' a, ' temp_tables{3} ' b set effect_cs="beneficial" where a.exp_id=b.exp_id and colony_size>perc95 and q_cs<0.01']);
