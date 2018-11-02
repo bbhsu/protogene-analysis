@@ -364,7 +364,7 @@ for ii = 1 : length(tables)
     exec(conn, ['update ' temp_tables{4} ' a, ' temp_tables{3} ' b set effect_cs="deleterious" where a.exp_id=b.exp_id and colony_size<perc5 and q_cs<0.01']);
     exec(conn, ['update ' temp_tables{4} ' a, ' temp_tables{3} ' b set effect_cs="beneficial" where a.exp_id=b.exp_id and colony_size>perc95 and q_cs<0.01']);
     exec(conn, ['update ' temp_tables{4} ' set effect_cs="neutral" where effect_cs = ""']);
-    exec(conn, ['update ' temp_tables{4} ' a, (select orf_name, exp_id, hours, count(orf_name) n from ' data_tables{5} ' where fitness is not null group by orf_name, exp_id) b set a.N=b.n where a.orf_name=b.orf_name and a.exp_id=b.exp_id']);
+    exec(conn, ['update ' temp_tables{4} ' a, (select orf_name, exp_id, count(orf_name) n from ' data_tables{5} ' where fitness is not null group by orf_name, exp_id) b set a.N=b.n where a.orf_name=b.orf_name and a.exp_id=b.exp_id']);
     toc;
 
     tic;
